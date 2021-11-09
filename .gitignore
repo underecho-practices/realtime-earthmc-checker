@@ -1,0 +1,17 @@
+# pyinstaller 
+dist/
+build/
+
+*.spec
+
+# vscode cache
+  
+.vscode/
+
+# venv
+venv/*
+
+
+# python prebuild
+
+__pycache__/
