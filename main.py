@@ -3,9 +3,10 @@ import os
 import time
 import requests
 import math
-import urllib.request
+import sys
 from datetime import datetime, timezone
  
+# Fake user agant
 user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'
 header = {
     "content-type": "application/json",
@@ -14,17 +15,32 @@ header = {
  
 url = "https://earthmc.net/map/tiles/_markers_/marker_earth.json"
 user_url = "https://earthmc.net/map/up/world/earth/"
-# discord_url = "https://discord.com/api/webhooks/897874529815257118/EVwrOak-rUUPHUpboapsjv5q7gxx-5MMF6HaYIlSyefBK6yvhfE_pqVJjd5h5kdZPf8P"
-discord_url = "https://canary.discord.com/api/webhooks/898020112983011348/opcxOPRFTPI2yRA1_YYwVu2qHcIuCSpXZRLVy19fvT41HHmP8sqbJcZGWcSbd7A8aSU_"
-debug = True
+discord_url = ""
 
 focus_mode = False
 oniya = False
 
-def dprint(text):
-    if debug:
-        print(text)
+def ascii_init():
+    a = """
+   ('-.    _   .-')                
+ _(  OO)  ( '.( OO )_              
+(,------.  ,--.   ,--.)   .-----.  
+ |  .---'  |   `.'   |   '  .--./  
+ |  |      |         |   |  |('-.  
+(|  '--.   |  |'.'|  |  /_) |OO  ) 
+ |  .--'   |  |   |  |  ||  |`-'|  
+ |  `---.  |  |   |  | (_'  '--'\  
+ `------'  `--'   `--'    `-----'  
+"""
+    print(a)
+    print("        Presented by GunmaSamurais")
+    print("              Coded by under.#2547\n\n\n\n\n")
 
+    print(f"Map marker url: {url}")
+    print(f"User data url: {user_url}")
+    print(f"WebHook url: {discord_url}")
+    
+    
 
 def get_latest_marker_data() -> dict:
     response = requests.get(url, headers=header)
@@ -36,17 +52,9 @@ def get_latest_user_data() -> dict:
     body:dict = response.json()
     return body
 
-def is_latest(timestamp) -> bool:
-    cache = 0
-    with open('timestamp', mode='r') as f:
-        cache = f.read()
-    if timestamp == cache:
-        return True
-    else:
-        with open('timestamp', mode='w') as f:
-            f.write(str(timestamp))
-            return False
-
+def split_list(l, n):
+    for idx in range(0, len(l), n):
+        yield l[idx:idx + n]
 
 def area_parse(file_name):
     with open(file_name, encoding='utf-8') as f:
@@ -58,7 +66,6 @@ def area_parse(file_name):
 def send_discord(data):
     header = {"content-type": "application/json"}
     time.sleep(1)
-    dprint(data)
     result = requests.post(discord_url, data=data, headers= header)
 
     try:
@@ -68,85 +75,92 @@ def send_discord(data):
     else:
         print("Payload delivered successfully, code {}.".format(result.status_code))
 
-def send_deleted_notify(deleted_towny:str) -> None:
-    data = 0
+def send_deleted_notify(deleted_towny:list) -> None:
+    all_data: list = []
     with open("area_parsed_old.json", mode='r', encoding='utf-8') as fs:
         temp = json.load(fs)
-        data = temp[deleted_towny]
+        all_data = [temp[i] for i in deleted_towny]
 
     content = {"content": None}
-    content["embeds"] = [{
-      "title": "DELETED Towny",
-      "url": f"https://earthmc.net/map/?worldname=earth&mapname=flat&zoom=8&x={str(data['x'][0])}&y=64&z={str(data['z'][0])}",
-      "description": "Town name: " + deleted_towny,
-      "color": 16711680,
-      "fields": [
-        {
-          "name": "X-pos",
-          "value": str(data['x'][0]),
-          "inline": True
-        },
-        {
-          "name": "Z-pos",
-          "value": str(data['z'][0]),
-          "inline": True
-        },
-        {
-          "name": "Nether X-pos(unconfirmed)",
-          "value": str(math.floor(data['x'][0] / 8)),
-          "inline": True
-        },
-        {
-          "name": "Nether Z-pos(unconfirmed)",
-          "value": str(math.floor(data['z'][0] / 8)),
-          "inline": True
-        }
-      ]
-    }]
+    content["embeds"] = []
+    for data in all_data:
+        content["embeds"].append({
+        "title": "DELETED Towny",
+        "url": f"https://earthmc.net/map/?worldname=earth&mapname=flat&zoom=8&x={str(data['x'][0])}&y=64&z={str(data['z'][0])}",
+        "description": "Town name: " + data["label"],
+        "color": 16711680,
+        "fields": [
+            {
+            "name": "X-pos",
+            "value": str(data['x'][0]),
+            "inline": True
+            },
+            {
+            "name": "Z-pos",
+            "value": str(data['z'][0]),
+            "inline": True
+            },
+            {
+            "name": "Nether X-pos(unconfirmed)",
+            "value": str(math.floor(data['x'][0] / 8)),
+            "inline": True
+            },
+            {
+            "name": "Nether Z-pos(unconfirmed)",
+            "value": str(math.floor(data['z'][0] / 8)),
+            "inline": True
+            }
+        ]
+        })
+
     
     send_discord(json.dumps(content))
 
-def send_added_notify(added_towny:str) -> None:
-    data = 0
+def send_added_notify(added_towny:list) -> None:
+    all_data: list = []
     with open("area_parsed.json", mode='r', encoding='utf-8') as fs:
         temp = json.load(fs)
-        data = temp[added_towny]
+        all_data = [temp[i] for i in added_towny]
 
     content = {"content": None}
-    content["embeds"] = [{
-      "title": "ADDED Towny",
-      "url": f"https://earthmc.net/map/?worldname=earth&mapname=flat&zoom=8&x={str(data['x'][0])}&y=64&z={str(data['z'][0])}",
-      "description": "Town name: " + added_towny,
-      "color": 65280,
-      "fields": [
-        {
-          "name": "X-pos",
-          "value": str(data['x'][0]),
-          "inline": True
-        },
-        {
-          "name": "Z-pos",
-          "value": str(data['z'][0]),
-          "inline": True
-        },
-        {
-          "name": "Nether X-pos(unconfirmed)",
-          "value": str(math.floor(data['x'][0] / 8)),
-          "inline": True
-        },
-        {
-          "name": "Nether Z-pos(unconfirmed)",
-          "value": str(math.floor(data['z'][0] / 8)),
-          "inline": True
-        }
-      ]
-    }]
+    content["embeds"] = []
+    for data in all_data:
+        content["embeds"].append({
+        "title": "ADDED Towny",
+        "url": f"https://earthmc.net/map/?worldname=earth&mapname=flat&zoom=8&x={str(data['x'][0])}&y=64&z={str(data['z'][0])}",
+        "description": "Town name: " + data["label"],
+        "color": 65280,
+        "fields": [
+            {
+            "name": "X-pos",
+            "value": str(data['x'][0]),
+            "inline": True
+            },
+            {
+            "name": "Z-pos",
+            "value": str(data['z'][0]),
+            "inline": True
+            },
+            {
+            "name": "Nether X-pos(unconfirmed)",
+            "value": str(math.floor(data['x'][0] / 8)),
+            "inline": True
+            },
+            {
+            "name": "Nether Z-pos(unconfirmed)",
+            "value": str(math.floor(data['z'][0] / 8)),
+            "inline": True
+            }
+        ]
+        })
     
     send_discord(json.dumps(content))
 
 def check_area():
     olddata = 0
     data = 0
+    deleted_data = []
+    added_data = []
 
     with open("area_parsed_old.json",mode='r', encoding='utf-8') as f:
         olddata = json.load(f)
@@ -156,13 +170,21 @@ def check_area():
     for i in olddata.keys():
         if not i in data.keys():
             if i[-5:]!="_Shop":
-                send_deleted_notify(i)
+                deleted_data.append(i)
                 focus_mode = True
         
     for i in data.keys():
         if not i in olddata.keys():
             if i[-5:]!="_Shop":
-                send_added_notify(i)
+                added_data.append(i)
+
+    result = list(split_list(added_data, 10))
+    for i in result:
+        send_added_notify(i)
+
+    result = list(split_list(deleted_data, 10))
+    for i in result:
+        send_deleted_notify(i)
 
 def check():
     try:
@@ -170,17 +192,28 @@ def check():
     except:
         pass
     else:
-        if not (is_latest(data["timestamp"])):
-            dt_local_aware = datetime.now().astimezone()
-            dprint(f"[{dt_local_aware.isoformat()}]" + "Cache miss. get latest data.")
-            with open('latest.json', 'w') as f:
-                json.dump(data, f, indent=4)
-            area_parse("latest.json")
-            check_area()
+        dt_local_aware = datetime.now().astimezone()
+        print(f"[{dt_local_aware.isoformat()}]" + "Checking latest data.")
+        with open('latest.json', 'w') as f:
+            json.dump(data, f, indent=4)
 
-            if os.path.exists("area_parsed_old.json"):
-                os.remove("area_parsed_old.json")
+        area_parse("latest.json")
+        if not os.path.exists("area_parsed_old.json"):
+            print(f"[{dt_local_aware.isoformat()}]" + "Historical data does not exist. aborted.")
             os.rename("area_parsed.json", "area_parsed_old.json")
+            return
+        else:
+            check_area()
+            check_oniya()
+            done = False
+            while not done:
+                try:
+                    if os.path.exists("area_parsed_old.json"):
+                        os.remove("area_parsed_old.json")
+                    os.rename("area_parsed.json", "area_parsed_old.json")
+                    done = True
+                except:
+                    print("unexpected error. retrying....")
 
 def check_oniya():
     global oniya
@@ -212,9 +245,25 @@ def check_oniya():
 
 if __name__ == "__main__":
     # init
+    if not os.path.exists("webhook"):
+        print("webhook file doesn't exist. Check that you have created the file before launching it.")
+        time.sleep(15)
+        sys.exit(0)
+
+    with open("webhook",mode='r', encoding='utf-8') as f:
+        discord_url = f.read()
+
+    
+        
+    ascii_init()
+    
     while True:
-        check()
-        check_oniya()
+        try:
+            check()
+        except:
+            print("unexpected error. check github or DM me.")
+            sys.exit(0)
+            
         if focus_mode:
             time.sleep(30)
         else:
